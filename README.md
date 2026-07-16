@@ -3,6 +3,23 @@
 
 This repo contains the benchmarks for Enzyme on GPU's.
 
+## Reactant C++ RSBench reproducer
+
+For the LLVM-to-MLIR/GPU raising path, place `Reactant`, `Enzyme-JAX`, and
+`Enzyme-GPU-Tests` next to each other, then run the common reproducer from this
+repository:
+
+```sh
+./run_rsbench_reactant.py --no-run
+```
+
+The script builds Reactant's Clang plugin, its matching Clang/resource
+directory, and Enzyme-JAX's `libRaise.so`, then invokes the raising pipeline
+through `RSBench/Makefile`. It defaults to the unoptimized configuration used
+by the crash reproducer. Omit `--no-run` to execute RSBench, or use
+`--optimize` for `-O3`. `--backend rocm` selects AMDGPU raising while still
+using the CUDA toolkit to parse the original NVIDIA source.
+
 If Enzyme, or part of this repository is useful to you, please cite:
 ```
 @inproceedings{enzymeGPU,

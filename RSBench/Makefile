@@ -4,6 +4,9 @@
 
 CUDA_PATH ?= /usr/local/cuda-12.9
 
+EMBEDDED_CLANG ?= no
+REACTANT_BACKEND ?= cuda
+
 ENZYME_PATH ?= $(HOME)/git/Reactant/enzyme/buildRelease/Enzyme/ClangEnzyme-22.so
 CLANG_PATH ?= $(HOME)/git/Enzyme/llvm-project/buildRelease/bin/clang++
 LIB_RAISE_PATH ?= $(HOME)/git/Enzyme-JaX/bazel-bin/libRaise.so
@@ -11,6 +14,7 @@ REACTANT_EXTRA_PATH ?= $(HOME)/git/Reactant.jl/deps/ReactantExtra/bazel-bin/
 
 export CUDA_HOME := $(CUDA_PATH)
 export PATH := $(CUDA_PATH)/bin:$(PATH)
+export REACTANT_PASS_TIMING ?= 1
 export POLYGEIST_GPU_KERNEL_BLOCK_SIZE = 128
 export LD_LIBRARY_PATH := $(REACTANT_EXTRA_PATH):$(LD_LIBRARY_PATH)
 
@@ -56,7 +60,20 @@ CFLAGS := -mllvm -max-heap-to-stack-size=1000000
 # -Rpass=attributor -mllvm -debug -mllvm -debug-only=attributor
 
 CC := $(CLANG_PATH)
-CFLAGS += -ffast-math --cuda-path=$(CUDA_PATH) -I$(CUDA_PATH)/include -L$(CUDA_PATH)/lib64 --cuda-gpu-arch=sm_$(SM_VERSION)  -std=c++11 -Xclang -load -Xclang $(ENZYME_PATH) -Xclang -add-plugin -Xclang enzyme -mllvm -raising-plugin-path -mllvm $(LIB_RAISE_PATH) -mllvm -reactant-backend -mllvm cuda -x cuda -fno-exceptions
+
+ENZYME_LOAD_FLAGS :=
+REACTANT_PLUGIN_FLAGS :=
+
+ifeq ($(EMBEDDED_CLANG),no)
+  ENZYME_LOAD_FLAGS += -fplugin=$(ENZYME_PATH)
+  REACTANT_PLUGIN_FLAGS += -fplugin-arg-enzyme-raising-plugin-path=$(LIB_RAISE_PATH)
+  REACTANT_PLUGIN_FLAGS += -fplugin-arg-enzyme-reactant-backend=$(REACTANT_BACKEND)
+else
+  REACTANT_PLUGIN_FLAGS += -Xclang -add-plugin -Xclang enzyme
+  REACTANT_PLUGIN_FLAGS += -mllvm -reactant-backend -mllvm $(REACTANT_BACKEND)
+endif
+
+CFLAGS += -ffast-math --cuda-path=$(CUDA_PATH) -I$(CUDA_PATH)/include -L$(CUDA_PATH)/lib64 --cuda-gpu-arch=sm_$(SM_VERSION) -std=c++11 $(ENZYME_LOAD_FLAGS) $(REACTANT_PLUGIN_FLAGS) -x cuda -fno-exceptions
 
 # Linker Flags
 LDFLAGS = "-lcudart_static" "-ldl" "-lrt" -lpthread -lm -L$(REACTANT_EXTRA_PATH) # -lReactantExtra

@@ -8,6 +8,16 @@
 #include<float.h>
 #include<assert.h>
 #include<cuda.h>
+
+// CUDA defines __noinline__ as a macro, which conflicts with attribute names
+// used by recent libstdc++ headers. Parse those headers before Thrust while the
+// CUDA macro is temporarily hidden.
+#pragma push_macro("__noinline__")
+#undef __noinline__
+#include <memory>
+#include <string>
+#pragma pop_macro("__noinline__")
+
 #include <thrust/reduce.h>
 #include <thrust/count.h>
 #include <thrust/sort.h>

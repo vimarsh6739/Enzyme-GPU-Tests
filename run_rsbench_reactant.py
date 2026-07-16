@@ -4,12 +4,11 @@
 The default directory layout is:
 
   <parent>/Reactant
-  <parent>/Enzyme-JAX
   <parent>/Enzyme-GPU-Tests
 
-Reactant's Bazel workspace owns the LLVM/Clang and Enzyme-JAX dependency used
-by the frontend, so one Bazel build produces a mutually compatible compiler,
-plugin, and libRaise shared library.
+Reactant's Bazel workspace owns the LLVM/Clang and pinned Enzyme-JAX dependency
+used by the frontend, so one Bazel build produces a mutually compatible
+compiler, plugin, and libRaise shared library.
 """
 
 from __future__ import annotations
@@ -122,12 +121,6 @@ def parse_args() -> argparse.Namespace:
         help="Enzyme-GPU-Tests checkout (default: directory containing this script)",
     )
     parser.add_argument(
-        "--enzyme-jax",
-        type=Path,
-        default=gpu_tests.parent / "Enzyme-JAX",
-        help="Local Enzyme-JAX checkout used for libRaise (default: sibling checkout)",
-    )
-    parser.add_argument(
         "--cuda-path",
         type=Path,
         default=default_cuda_path(),
@@ -173,11 +166,6 @@ def parse_args() -> argparse.Namespace:
         help="Reuse existing Bazel artifacts instead of building the frontend",
     )
     parser.add_argument(
-        "--sync-enzyme-jax",
-        action="store_true",
-        help="Refresh Reactant's local @enzyme_ad snapshot before building",
-    )
-    parser.add_argument(
         "--no-run",
         action="store_true",
         help="Build RSBench but do not execute it",
@@ -186,11 +174,6 @@ def parse_args() -> argparse.Namespace:
         "--debug-reactant",
         action="store_true",
         help="Enable verbose imported/final MLIR diagnostics",
-    )
-    parser.add_argument(
-        "--export-mlir",
-        action="store_true",
-        help="Set EXPORT_REACTANT=1 so the raising pipeline emits MLIR files",
     )
     parser.add_argument(
         "--bazel-arg",
@@ -214,7 +197,6 @@ def main() -> int:
 
     reactant = args.reactant.resolve()
     enzyme_dir = reactant / "enzyme"
-    enzyme_jax = args.enzyme_jax.resolve()
     gpu_tests = args.gpu_tests.resolve()
     rsbench_dir = gpu_tests / "RSBench"
     cuda_path = args.cuda_path.resolve()
@@ -222,7 +204,6 @@ def main() -> int:
     require_program("bazel")
     require_program("make")
     require_directory(enzyme_dir, "Reactant C++ frontend workspace")
-    require_directory(enzyme_jax, "local Enzyme-JAX checkout")
     require_directory(rsbench_dir, "RSBench source directory")
     require_file(rsbench_dir / "Makefile", "RSBench Makefile")
     require_file(cuda_path / "include" / "cuda.h", "CUDA header")
@@ -233,23 +214,10 @@ def main() -> int:
 
     bazel_options = [
         "--experimental_repo_remote_exec",
-        f"--repo_env=REACTANT_ENZYMEXLA_PATH={enzyme_jax}",
         "-c",
         "opt",
         *args.bazel_arg,
     ]
-
-    if args.sync_enzyme_jax:
-        run(
-            [
-                "bazel",
-                "sync",
-                "--experimental_repo_remote_exec",
-                f"--repo_env=REACTANT_ENZYMEXLA_PATH={enzyme_jax}",
-                "--only=enzyme_ad",
-            ],
-            cwd=enzyme_dir,
-        )
 
     if args.mode == "plugin":
         build_targets = [
@@ -333,9 +301,6 @@ def main() -> int:
     env["REACTANT_PASS_TIMING"] = "1"
     if args.debug_reactant:
         env["DEBUG_REACTANT"] = "1"
-    if args.export_mlir:
-        env["EXPORT_REACTANT"] = "1"
-
     if not args.no_clean:
         run(["make", "clean"], cwd=rsbench_dir, env=env)
 
